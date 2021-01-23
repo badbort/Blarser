@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Blarser.Commands": {
+      "commandName": "Project",
+      "commandLineArgs": "file-chunks --content \"D:\\Code\\Experiments\\WoW Content\\WoW 2021\" \"world\\maps\\azeroth\\azeroth_17_37.adt\""
+    }
+  }
+}
