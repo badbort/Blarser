@@ -11,16 +11,20 @@ using Microsoft.Extensions.Primitives;
 
 namespace Blarser.WowContent.FileSystem
 {
-    public class CascFileProvider : IFileProvider
+    public class CascFileProvider : ICascFileProvider
     {
         private static readonly char[] s_pathSeparators = {Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar};
         private static readonly LocaleFlags s_localeFlags = LocaleFlags.enUS;
 
         private readonly CascDirectoryInfo _rootDirInfo;
         private readonly CASCFolder _rootCascFolder;
+
         private readonly string _listFile;
 
         public CASCHandler CascHandler { get; }
+
+        /// <inheritdoc />
+        public Dictionary<long, string> Files => null;
 
         public CascFileProvider( bool online, string gamePath, string listFile, string wowProduct = "wow" )
         {
@@ -117,6 +121,25 @@ namespace Blarser.WowContent.FileSystem
 
         /// <inheritdoc />
         public IChangeToken Watch( string filter ) => NullChangeToken.Singleton;
+
+        /// <inheritdoc />
+        public bool TryGetFile( int fileIndex, out ulong hash, out string fileName )
+        {
+            fileName = default;
+            var handler = (WowRootHandler) CascHandler.Root;
+            hash = handler.GetHashByFileDataId( fileIndex );
+
+            if(hash == default)
+                return false;
+
+            if(CASCFile.Files.TryGetValue( hash, out var cascFile ))
+            {
+                fileName = cascFile.FullName;
+                return true;
+            }
+
+            return false;
+        }
     }
 
     internal class CascDirectoryContents : IDirectoryContents

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Blarser.Commands.Commands;
+using Blarser.WowContent.WowFiles.Chunks;
 using McMaster.Extensions.CommandLineUtils;
 using McMaster.Extensions.CommandLineUtils.Conventions;
 using Microsoft.Extensions.DependencyInjection;

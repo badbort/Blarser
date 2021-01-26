@@ -10,6 +10,8 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Blarser.WowContent.WowFiles;
+using Blarser.WowContent.WowFiles.Chunks;
 using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.FileProviders.Physical;
@@ -82,6 +84,8 @@ namespace Blarser.Commands.Commands
 
             int chunks = 0;
             long size = 0;
+            Dictionary<string, int> occurrences = new();
+            
             try
             {
 
@@ -90,11 +94,41 @@ namespace Blarser.Commands.Commands
                     ReadResult read = await reader.ReadAsync( cancellationToken );
                     ReadOnlySequence<byte> buffer = read.Buffer;
 
-                    if(TryReadChunk( ref buffer, out string chunk, out ReadOnlySequence<byte> sequence ))
+                    if(TryReadChunk( ref buffer, out string chunk, out ReadOnlySequence<byte> chunkBuffer ))
                     {
-                        // Console.WriteLine( $"Chunk {chunk} at index {sequence.Start.GetInteger() - 8} to {sequence.End.GetInteger()} for {sequence.Length} bytes" );
+                        Console.WriteLine( $"Chunk {chunk} at index {chunkBuffer.Start.GetInteger() - 8} to {chunkBuffer.End.GetInteger()} for {chunkBuffer.Length} bytes" );
                         chunks++;
-                        size += sequence.Length + 8;
+                        size += chunkBuffer.Length + 8;
+
+
+                        occurrences.TryGetValue( chunk, out var c );
+                        occurrences[chunk] = c + 1;
+
+                        if(chunk == "MAID")
+                        {
+                            
+                        }
+                        else if(chunk == "MWID")
+                        {
+                            NullSeparatedStringsChunk.TryParse( buffer );
+                        }
+                        else if( chunk == "MWMO")
+                        {
+                            
+                        }else if( chunk == "MODF" && chunkBuffer.Length > 0)
+                        {
+                            // var modf = MODF.Create( ref chunkBuffer );
+
+                            var modf2 = ChunkSequenceReader.ReadMODF( ref chunkBuffer );
+                        }
+
+                        var str = Encoding.Default.GetString( chunkBuffer );
+
+                        if(str.Contains( ".wmo" ))
+                        {
+                            
+                        }
+
                     }
 
                     if (read.IsCompleted && read.Buffer.IsEmpty)
@@ -135,14 +169,12 @@ namespace Blarser.Commands.Commands
             // var chunkLength = BinaryPrimitives.ReadUInt32LittleEndian( buffer.Slice( 4, 4 ).FirstSpan );
 
             
-            var infoSlice = buffer.Slice( buffer.Start, 8 );
-            var chunkSlice = infoSlice.Slice( 0, 4);
-            var lengthSlice = buffer.Slice(4, 4);
-            
-            chunkType = string.Join( null, Encoding.Default.GetString( chunkSlice ).Reverse() );
+            // var infoSlice = buffer.Slice( buffer.Start, 8 );
+            // var chunkSlice = infoSlice.Slice( 0, 4);
+            // var lengthSlice = buffer.Slice(4, 4);
             
             Span<byte> chunkLengthSpan = stackalloc byte[4];
-            lengthSlice.CopyTo(chunkLengthSpan);
+            buffer.Slice( 4, 4 ).CopyTo(chunkLengthSpan);
             var chunkLength = BinaryPrimitives.ReadUInt32LittleEndian( chunkLengthSpan );
             
             // var iSegment = buffer.Start;
@@ -153,8 +185,10 @@ namespace Blarser.Commands.Commands
                 // System.Console.WriteLine($"Waiting for {chunkLength} data");
                 return false;
             }
-
+            
+            chunkType = string.Join( null, Encoding.Default.GetString(  buffer.Slice( 0, 4 )  ).Reverse() );
             chunkData = buffer.Slice( 8, chunkLength );
+            
             buffer = buffer.Slice( chunkData.End );
             
             // System.Console.WriteLine($"Shifting buffer to {buffer.Length}");

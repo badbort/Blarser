@@ -23,13 +23,13 @@ namespace Blarser.Commands.Commands
         {
         }
 
-        protected IFileProvider GetFileProvider()
+        protected ICascFileProvider GetFileProvider()
         {
             if(!string.IsNullOrWhiteSpace( FileSystem ))
-                return new PhysicalFileProvider( FileSystem );
+                return new PhysicalCascFileProvider( FileSystem, ListFile );
 
             if(!string.IsNullOrWhiteSpace( InstallPath ))
-                return new CascFileProvider( false, InstallPath, ListFile, "wow" );
+                return new CascFileProvider( false, InstallPath, ListFile );
 
             return null;
         }
