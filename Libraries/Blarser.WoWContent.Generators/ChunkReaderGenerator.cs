@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace Blarser.WoWContent.Generators
 {
     [ Generator ]
-    public class ChunkReaderGenerator : ISourceGenerator
+    public partial class ChunkReaderGenerator : ISourceGenerator
     {
         /// <inheritdoc />
         public void Initialize( GeneratorInitializationContext context )
@@ -32,32 +32,12 @@ namespace Blarser.WoWContent.Generators
             var chunkEntryAttribute = context.Compilation.GetTypeByMetadataName( "Blarser.WowContent.WowFiles.Chunks.ChunkEntryAttribute" );
             var array = context.Compilation.GetTypeByMetadataName( "System.Array" );
             
-            // context.AddSource();
-
-
-            // context.Compilation.Assembly.Ty
-
-            context.AddSource( "myGeneratedFile.cs", SourceText.From( @"
-
-
-namespace GeneratedNamespace
-{
-    public class GeneratedClass
-    {
-        public static void GeneratedMethod()
-        {
-            System.Console.WriteLine(""lajsdklfjalk :("");
-            // generated code
-        }
-    }
-}", Encoding.UTF8 ) );
-
             List<ChunkTypeInfo> chunkClasses = new List<ChunkTypeInfo>();
 
             foreach(var classDefinition in syntaxReceiver!.ClassDeclarations)
             {
                 SemanticModel classModel = null;
-                INamedTypeSymbol? classSymbol = null;
+                INamedTypeSymbol classSymbol = null;
                 var chunkClass = new ChunkTypeInfo();
 
                 foreach(var attributeSyntax in classDefinition.AttributeLists.SelectMany(a => a.Attributes))
@@ -116,9 +96,7 @@ namespace GeneratedNamespace
                                 var propertyOrder = (int?) propertySymbol!.GetAttributes().SingleOrDefault(d => chunkFieldAttribute!.Equals(d.AttributeClass, SymbolEqualityComparer.Default))?.ConstructorArguments.FirstOrDefault().Value;
                                 bool isArray = propertySymbol.Type.BaseType.Equals( array, SymbolEqualityComparer.Default );
 
-                                var tName = propertySymbol.Type.Name;
-
-                                string type = null;
+                                string type;
 
                                 if(isArray)
                                     type = ((IArrayTypeSymbol) propertySymbol.Type)?.ElementType.Name;
@@ -137,10 +115,28 @@ namespace GeneratedNamespace
                 chunkClasses.Add( chunkClass );
             }
 
+            var arrayTypes = chunkClasses.SelectMany( c => c.Properties ).Where( p => p.IsArray ).Select( p => p.PropertyType );
+
+            foreach(string arrayType in arrayTypes)
+            {
+                var chunkInfo = chunkClasses.SingleOrDefault( c => c.ClassName == arrayType );
+
+                if(chunkInfo == null)
+                {
+                    continue;
+
+                    context.ReportDiagnostic(
+                        Diagnostic.Create( new DiagnosticDescriptor( "CG0", "Array Generation Error", $"Could not locate class for type {arrayType}", "ChunkGenerator", DiagnosticSeverity.Error, true ), Location.None ) );
+                    
+                }
+                
+                chunkInfo.CreateArrayReadMethod = true;
+            }
+            
             foreach(ChunkTypeInfo chunkClass in chunkClasses)
             {
                 var source = chunkClass.GetSource();
-                context.AddSource( $"Read{chunkClass.ClassName}.cs", SourceText.From( source, Encoding.UTF8 ) );
+                context.AddSource( $"{chunkClass.ClassName}ReaderExtensions.cs", SourceText.From( source, Encoding.UTF8 ) );
             }
         }
 
@@ -154,11 +150,42 @@ namespace GeneratedNamespace
 
             public List<PropertyInfo> Properties { get; } = new();
             
+            public bool CreateArrayReadMethod { get; set; }
+
             public string GetSource()
             {
-                const string extensionClass = "ChunkSequenceReader";
+                const string extensionClass = "ChunkReader";
                 const string extensionNamespace = "Blarser.WowContent.WowFiles";
-            
+
+                StringBuilder sb = new StringBuilder();
+
+                if(CreateArrayReadMethod)
+                {
+                    sb.AppendLine( $@"
+        public static {ClassName}[] Read{ClassName}Array(ref ReadOnlySequence<byte> buffer)
+        {{
+            int entryCount = (int) buffer.Length / Get{ClassName}Length();
+            var array = new {ClassName}[entryCount];
+
+            for(int i = 0; i < entryCount; i++)
+            {{
+                array[i] = Read{ClassName}(ref buffer);
+            }}
+
+            return array;
+        }}
+" );
+                }
+
+                if(Length.HasValue)
+                {
+                    sb.AppendLine( $@"
+        public static int Get{ClassName}Length() => {Length ?? -1};
+" );
+
+                }
+                
+                
                 return $@"
 using System;
 using System.Buffers;
@@ -182,7 +209,7 @@ namespace {extensionNamespace}
             return instance;
         }}
 
-        public static int Get{ClassName}Length() => {Length ?? -1};
+{sb}
     }}
 }}";
             }
@@ -197,14 +224,16 @@ namespace {extensionNamespace}
 
                     if(p.IsArray)
                     {
+                        sb.Append( $@"            instance.{prop} = Read{p.PropertyType}Array(ref buffer);" );
                         
-                        sb.Append( $@"int entryCount = (int) buffer.Length / Get{p.PropertyType}Length();
-instance.{prop} = new {p.PropertyType}[entryCount];
-
-for(int i = 0; i < entryCount; i++)
-{{
-    instance.{prop}[i] = Read{p.PropertyType}(ref buffer);
-}}" );
+//                         sb.Append( $@"
+//             int entryCount = (int) buffer.Length / Get{p.PropertyType}Length();
+//             instance.{prop} = new {p.PropertyType}[entryCount];
+//
+//             for(int i = 0; i < entryCount; i++)
+//             {{
+//                 instance.{prop}[i] = Read{p.PropertyType}(ref buffer);
+//             }}" );
                     }
                     else
                     {
@@ -217,18 +246,5 @@ for(int i = 0; i < entryCount; i++)
         }
 
         public record PropertyInfo ( string PropertyType, string PropertyName, bool IsArray, int Order );
-
-        private sealed class SyntaxReceiver : ISyntaxReceiver
-        {
-            public List<ClassDeclarationSyntax> ClassDeclarations { get; } = new();
-            
-            public void OnVisitSyntaxNode( SyntaxNode syntaxNode )
-            {
-                // Any class
-                if(syntaxNode is ClassDeclarationSyntax c && c.AttributeLists.Count > 0)
-                    ClassDeclarations.Add( c );
-            }
-        }
-
     }
 }

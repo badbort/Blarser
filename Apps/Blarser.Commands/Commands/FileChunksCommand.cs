@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -10,6 +11,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Blarser.WowContent.FileSystem;
 using Blarser.WowContent.WowFiles;
 using Blarser.WowContent.WowFiles.Chunks;
 using McMaster.Extensions.CommandLineUtils;
@@ -63,11 +65,11 @@ namespace Blarser.Commands.Commands
                 else
                 {
                     // await using var ms = new MemoryStream();
-                    await using var str = fileInfo.CreateReadStream();
+                    await using var stream = fileInfo.CreateReadStream();
 
-                    Console.WriteLine($"File {fileInfo.PhysicalPath} length: {str.Length}");
+                    Console.WriteLine($"File {fileInfo.PhysicalPath} length: {stream.Length}");
 
-                    await Test( str, cancellationToken );
+                    await Test( stream, fileInfo.Name, provider, cancellationToken );
                     // await str.CopyToAsync( ms, cancellationToken );
                     //
                     // Test( ms.ToArray() );
@@ -77,7 +79,7 @@ namespace Blarser.Commands.Commands
             return 0;
         }
 
-        private async Task Test( Stream stream, CancellationToken cancellationToken )
+        private async Task Test( Stream stream, string fileInfoName, ICascFileProvider casc, CancellationToken cancellationToken )
         {
             Stopwatch sw = Stopwatch.StartNew();
             PipeReader reader = PipeReader.Create(stream);
@@ -100,6 +102,7 @@ namespace Blarser.Commands.Commands
                         chunks++;
                         size += chunkBuffer.Length + 8;
 
+                        Scan( chunkBuffer );
 
                         occurrences.TryGetValue( chunk, out var c );
                         occurrences[chunk] = c + 1;
@@ -108,6 +111,15 @@ namespace Blarser.Commands.Commands
                         {
                             
                         }
+                        else if(chunk == "MOGP")
+                        {
+                            var buffer2 = chunkBuffer.Slice( 68 );
+                            while(TryReadChunk( ref buffer2, out string subchunk, out ReadOnlySequence<byte> subChunkBuffer ))
+                            {
+                                Console.WriteLine( $"MOGP subchunk {subchunk} at index {subChunkBuffer.Start.GetInteger() - 8} to {subChunkBuffer.End.GetInteger()} for {subChunkBuffer.Length} bytes" );
+
+                            }
+                        }
                         else if(chunk == "MWID")
                         {
                             NullSeparatedStringsChunk.TryParse( buffer );
@@ -115,20 +127,47 @@ namespace Blarser.Commands.Commands
                         else if( chunk == "MWMO")
                         {
                             
-                        }else if( chunk == "MODF" && chunkBuffer.Length > 0)
+                        }
+                        else if(chunk == "MODF" && chunkBuffer.Length > 0)
                         {
                             // var modf = MODF.Create( ref chunkBuffer );
+                            MODF modf = ChunkReader.ReadMODF( ref chunkBuffer );
 
-                            var modf2 = ChunkSequenceReader.ReadMODF( ref chunkBuffer );
+                            if(modf.Items.Length > 0)
+                                Console.WriteLine( fileInfoName + " MODF:" );
+
+                            foreach(var modfEntry in modf.Items)
+                            {
+                                casc.TryGetFile( (int) modfEntry.mwidEntry, out _, out string fileName );
+
+                                if(fileName != null)
+                                    Console.WriteLine( $"\tFile: {fileName}" );
+                            }
                         }
-
-                        var str = Encoding.Default.GetString( chunkBuffer );
-
-                        if(str.Contains( ".wmo" ))
+                        else if(chunk == "MOHD")
                         {
-                            
+                            MOHD mohd = ChunkReader.ReadMOHD( ref chunkBuffer );
                         }
+                        else if(chunk == "MOMT")
+                        {
+                            MOMT momt = ChunkReader.ReadMOMT( ref chunkBuffer );
 
+                            if(momt.Materials.Length > 0)
+                                Console.WriteLine( fileInfoName  + " MOMT:");
+                            
+                            foreach(var mat in momt.Materials)
+                            {
+                                if(casc.TryGetFile( (int) mat.texture_1, out _, out string texture ))
+                                {
+                                    Console.WriteLine("\t" + texture );
+                                }
+                            }
+
+                        }
+                        else if(chunk == "MOTX")
+                        {
+                            var motx = ChunkReader.ReadMOTX( ref chunkBuffer );
+                        }
                     }
 
                     if (read.IsCompleted && read.Buffer.IsEmpty)
@@ -151,7 +190,38 @@ namespace Blarser.Commands.Commands
             }
             
             sw.Stop();
-            Console.WriteLine( $"Completed in {sw.ElapsedMilliseconds} ms with {chunks} chunks and {size} bytes" );
+            // Console.WriteLine( $"Completed in {sw.ElapsedMilliseconds} ms with {chunks} chunks and {size} bytes" );
+        }
+
+        private static void Scan( ReadOnlySequence<byte> readOnlySequence )
+        {
+            Span<byte> search = stackalloc byte[4];
+            Span<byte> temp = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian( search, 210902 );
+
+            while(readOnlySequence.Length >= 4)
+            {
+                readOnlySequence.Slice(0,4).CopyTo(temp);
+
+                if(temp == search)
+                {
+                    
+                }
+
+                bool areSame = true;
+                for(int i = 0; i < 4; i++)
+                {
+                    if(temp[i] != search[i])
+                        areSame = false;
+                }
+
+                if(areSame)
+                {
+                    
+                }
+                
+                readOnlySequence = readOnlySequence.Slice( 1 );
+            }
         }
 
         private static bool TryReadChunk( ref ReadOnlySequence<byte> buffer, out string chunkType, out ReadOnlySequence<byte> chunkData )
