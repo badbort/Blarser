@@ -10,8 +10,8 @@ namespace Blarser.WowContent.WowFiles.Chunks
         public MapFileDataIDs[] MapFileDataIDs { get; set; }
     }
     
-    [ChunkEntry(32)]
-    public struct MapFileDataIDs
+    [GenerateRead(32, generateArray:true)]
+    public class MapFileDataIDs
     {
         [ChunkField] public uint rootADT {get;set;} // reference to fdid of mapname_xx_yy.adt
         [ChunkField] public uint obj0ADT {get;set;} // reference to fdid of mapname_xx_yy_obj0.adt

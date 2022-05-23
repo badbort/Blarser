@@ -14,7 +14,7 @@ namespace Blarser.WowContent.WowFiles.Chunks
         public SMMapObjDef[] Items { get; set; }
     }
 
-    [ChunkEntry(64)]
+    [GenerateRead(64)]
     public class SMMapObjDef
     {
         /// <summary>

@@ -9,7 +9,7 @@ namespace Blarser.WowContent.WowFiles.Chunks
         public SMOMaterial[] Materials { get; set; }
     }
 
-    [ ChunkEntry( 64 ) ]
+    [ GenerateRead( 64 ) ]
     public class SMOMaterial
     {
         /// <summary>

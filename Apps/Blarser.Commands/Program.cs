@@ -12,6 +12,7 @@ namespace Blarser.Commands
     [ Subcommand( typeof(CascTestCommand) ) ]
     [ Subcommand( typeof(CascFileCommand) ) ]
     [ Subcommand( typeof(FileChunksCommand) ) ]
+    [ Subcommand( typeof(DbcCommand) ) ]
     class Program
     {
         static async Task Main( string[] args )

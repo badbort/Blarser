@@ -32,6 +32,15 @@ namespace Blarser.WowContent.WowFiles
             return BinaryPrimitives.ReadSingleLittleEndian( data4 );
         }
 
+        public static Int16 ReadInt16( ref ReadOnlySequence<byte> buffer, ref Span<byte> data4 )
+        {
+            var data = buffer.Slice( 0, 2 );
+            data.CopyTo( data4 );
+            buffer = buffer.Slice( data.End );
+
+            return BinaryPrimitives.ReadInt16LittleEndian( data4 );
+        }
+        
         public static UInt16 ReadUInt16( ref ReadOnlySequence<byte> buffer, ref Span<byte> data4 )
         {
             var data = buffer.Slice( 0, 2 );
@@ -39,6 +48,16 @@ namespace Blarser.WowContent.WowFiles
             buffer = buffer.Slice( data.End );
 
             return BinaryPrimitives.ReadUInt16LittleEndian( data4 );
+        }
+        
+
+        public static UInt64 ReadUInt64( ref ReadOnlySequence<byte> buffer, ref Span<byte> data4 )
+        {
+            var data = buffer.Slice( 0, 8 );
+            data.CopyTo( data4 );
+            buffer = buffer.Slice( data.End );
+
+            return BinaryPrimitives.ReadUInt64LittleEndian( data4 );
         }
 
         public static byte ReadByte( ref ReadOnlySequence<byte> buffer, ref Span<byte> data4 )
@@ -98,6 +117,20 @@ namespace Blarser.WowContent.WowFiles
             box.A = data4[3];
 
             return box;
+        }
+
+        public static string ReadStringReverse(ref ReadOnlySequence<byte> buffer, int size )
+        {
+            var slice = buffer.Slice( 0, size );
+            buffer = buffer.Slice( slice.End );
+            return string.Join( null, Encoding.Default.GetString(  slice  ).Reverse() );
+        }
+        
+        public static string ReadString(ref ReadOnlySequence<byte> buffer, int size )
+        {
+            var slice = buffer.Slice( 0, size );
+            buffer = buffer.Slice( slice.End );
+            return string.Join( null, Encoding.Default.GetString(  slice  ) );
         }
 
         public static string[] ReadStringArray( ref ReadOnlySequence<byte> buffer )

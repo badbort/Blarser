@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -25,16 +26,18 @@ namespace Blarser.WoWContent.Generators
         {
             var syntaxReceiver = (SyntaxReceiver) context.SyntaxReceiver;
 
-            Debugger.Launch();
+#if DEBUG
+            // Debugger.Launch();
+#endif
 
             var chunkTypeAttribute = context.Compilation.GetTypeByMetadataName( "Blarser.WowContent.WowFiles.Chunks.FileChunkAttribute" );
             var chunkFieldAttribute = context.Compilation.GetTypeByMetadataName( "Blarser.WowContent.WowFiles.Chunks.ChunkFieldAttribute" );
-            var chunkEntryAttribute = context.Compilation.GetTypeByMetadataName( "Blarser.WowContent.WowFiles.Chunks.ChunkEntryAttribute" );
+            var generateRead = context.Compilation.GetTypeByMetadataName(  "Blarser.WowContent.WowFiles.Chunks.GenerateReadAttribute" );
             var array = context.Compilation.GetTypeByMetadataName( "System.Array" );
             
             List<ChunkTypeInfo> chunkClasses = new List<ChunkTypeInfo>();
 
-            foreach(var classDefinition in syntaxReceiver!.ClassDeclarations)
+            foreach (var classDefinition in syntaxReceiver!.ClassDeclarations.OfType<TypeDeclarationSyntax>().Concat(syntaxReceiver.StructDeclarations))
             {
                 SemanticModel classModel = null;
                 INamedTypeSymbol classSymbol = null;
@@ -54,11 +57,12 @@ namespace Blarser.WoWContent.Generators
                         break;
                     }
                     
-                    if(chunkEntryAttribute!.Equals( methodSymbol.ContainingType, SymbolEqualityComparer.Default ))
+                    if(generateRead!.Equals( methodSymbol.ContainingType, SymbolEqualityComparer.Default ))
                     {
                         classSymbol ??= GetClassModel().GetDeclaredSymbol( classDefinition );
-                        
-                        var recordSize = (int?) classSymbol!.GetAttributes().SingleOrDefault(d => chunkEntryAttribute!.Equals(d.AttributeClass, SymbolEqualityComparer.Default))?.ConstructorArguments.FirstOrDefault().Value;
+
+                        var generateReadAttribute = classSymbol!.GetAttributes().SingleOrDefault(d => generateRead!.Equals(d.AttributeClass, SymbolEqualityComparer.Default));
+                        var recordSize = (int?) generateReadAttribute?.ConstructorArguments.FirstOrDefault().Value;
                         chunkClass.IsChunkType = true;
                         chunkClass.Length = recordSize;
                         break;
@@ -117,7 +121,7 @@ namespace Blarser.WoWContent.Generators
 
             var arrayTypes = chunkClasses.SelectMany( c => c.Properties ).Where( p => p.IsArray ).Select( p => p.PropertyType );
 
-            foreach(string arrayType in arrayTypes)
+            foreach(string arrayType in arrayTypes.Distinct())
             {
                 var chunkInfo = chunkClasses.SingleOrDefault( c => c.ClassName == arrayType );
 
@@ -203,7 +207,7 @@ namespace {extensionNamespace}
         public static {ClassName} Read{ClassName}( ref ReadOnlySequence<byte> buffer )
         {{
             var instance = new {ClassName}();
-            Span<byte> tempData = stackalloc byte[4];
+            Span<byte> tempData = stackalloc byte[8];
 
 {GetReadCalls()}
             return instance;
@@ -223,22 +227,9 @@ namespace {extensionNamespace}
                     string prop = p.PropertyName;
 
                     if(p.IsArray)
-                    {
-                        sb.Append( $@"            instance.{prop} = Read{p.PropertyType}Array(ref buffer);" );
-                        
-//                         sb.Append( $@"
-//             int entryCount = (int) buffer.Length / Get{p.PropertyType}Length();
-//             instance.{prop} = new {p.PropertyType}[entryCount];
-//
-//             for(int i = 0; i < entryCount; i++)
-//             {{
-//                 instance.{prop}[i] = Read{p.PropertyType}(ref buffer);
-//             }}" );
-                    }
+                        sb.AppendLine( $@"            instance.{prop} = Read{p.PropertyType}Array(ref buffer);" );
                     else
-                    {
                         sb.AppendLine( $"            instance.{prop} = Read{p.PropertyType}(ref buffer, ref tempData);" );
-                    }
                 }
 
                 return sb.ToString();
