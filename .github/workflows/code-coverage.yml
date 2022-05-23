@@ -2,7 +2,7 @@ name: codacy-coverage-reporter
 
 on: ["push"]
 
-jobs:https://github.com/badbort/Blarser
+jobs:
   codacy-coverage-reporter:
     runs-on: windows-latest
     name: codacy-coverage-reporter
