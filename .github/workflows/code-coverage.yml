@@ -7,7 +7,25 @@ jobs:
     runs-on: windows-latest
     name: codacy-coverage-reporter
     steps:
+    
       - uses: actions/checkout@v2
+    
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.0.*
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --no-restore
+
+      - name: Cover
+        run: dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=coverage --no-restore
       
       - name: Run codacy-coverage-reporter
         uses: codacy/codacy-coverage-reporter-action@v1
