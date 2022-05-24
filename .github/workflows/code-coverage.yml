@@ -33,7 +33,9 @@ jobs:
           $ReportPaths = Get-ChildItem *cobertura.xml -Recurse | Resolve-Path -Relative | Join-String -Separator ","
           echo "COVERAGE_REPORTS=$ReportPaths" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
       
-      - run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report -l CSharp $(find . -name 'coverage.cobertura.xml' -printf '-r %p ')
+      - name: Upload Coverage to Codacy
+        shell: bash
+        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report -l CSharp $(find . -name 'coverage.cobertura.xml' -printf '-r %p ')
       
 #       - name: Run codacy-coverage-reporter
 #         uses: codacy/codacy-coverage-reporter-action@v1
