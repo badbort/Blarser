@@ -27,8 +27,14 @@ jobs:
       - name: Cover
         run: dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=coverage --no-restore
       
+      - name: Populate Reports Variable
+        shell: pwsh
+        run: |
+          $ReportPaths = Get-ChildItem *cobertura.xml -Recurse | Resolve-Path -Relative | Join-String -Separator ","
+          echo "COVERAGE_REPORTS=$ReportPaths" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+      
       - name: Run codacy-coverage-reporter
         uses: codacy/codacy-coverage-reporter-action@v1
         with:
           api-token: ${{ secrets.CODACY_API_TOKEN }}
-          #coverage-reports: cobertura.xml
+          coverage-reports: '$($Env:COVERAGE_REPORTS)'
