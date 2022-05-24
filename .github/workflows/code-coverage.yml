@@ -45,22 +45,23 @@ jobs:
               $headers.Add("caller", "string")
               $headers.Add("Content-Type", "application/json")
 
-              $body = "{
-              `n  `"repositoryFullPath`": `"$env:GITHUB_REPOSITORY`",
-              `n  `"provider`": `$env:CODACY_ORGANIZATION_PROVIDER`"
-              `n}"
+              $body = @{
+                repositoryFullPath = $env:GITHUB_REPOSITORY
+                provider = $env:CODACY_ORGANIZATION_PROVIDER
+              } | ConvertTo-Json
+              
+              Write-Host "Sending request with body: $body"
 
               try {
-              $response = Invoke-RestMethod 'https://app.codacy.com/api/v3/repositories' -Method 'POST' -Headers $headers -Body $body -SkipHttpErrorCheck
+                $response = Invoke-RestMethod 'https://app.codacy.com/api/v3/repositories' -Method 'POST' -Headers $headers -Body $body -SkipHttpErrorCheck
               } catch [System.Net.WebException] {
-              Write-Host "An exception was caught: $($_.Exception.Message)"
+                Write-Host "An exception was caught: $($_.Exception.Message)"
               }
 
               $statusCodeInt = [int]$response.BaseResponse.StatusCode
 
-              Write-Host $statusCodeInt
+              Write-Host Response: $statusCodeInt
               Write-Host $response
-              Write-Host $response.StatusCode
               
               $response | ConvertTo-Json
               
