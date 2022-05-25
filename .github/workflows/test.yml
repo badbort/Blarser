@@ -1,0 +1,10 @@
+name: A silly sausage
+
+on: ["push", "workflow_dispatch"]
+
+
+jobs:
+  silly-test:
+    uses: bortington/.github/.github/workflows/silly-test.yml@main
+    with:
+      silly_var: Ahoi hoi
