@@ -5,7 +5,6 @@ on: ["push", "workflow_dispatch"]
 
 jobs:
   codacy-coverage-reporter:
-    name: codacy-coverage-reporter    
     uses: bortington/github-common/.github/workflows/dotnet-test-with-codacy.yml@main
     with:
       dotnet_version: 6.0.*
