@@ -2,6 +2,7 @@ name: codacy-coverage-reporter-templated
 
 on: ["push", "workflow_dispatch"]
 
+
 jobs:
   codacy-coverage-reporter:
     name: codacy-coverage-reporter    
