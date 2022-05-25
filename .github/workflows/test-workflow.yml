@@ -7,7 +7,7 @@ jobs:
     runs-on: windows-latest
     name: codacy-coverage-reporter    
     steps:    
-      - uses: bortington/.github/blob/main/workflows/dotnet-test-with-codacy.yml
+      - uses: bortington/.github/workflows/dotnet-test-with-codacy.yml@main
         with:
           dotnet_version: 6.0.*
         secrets:
