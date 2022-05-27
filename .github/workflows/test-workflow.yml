@@ -8,5 +8,4 @@ jobs:
     uses: bortington/github-common/.github/workflows/dotnet-test-with-codacy.yml@main
     with:
       dotnet_version: 6.0.*
-    secrets:
-      CODACY_API_TOKEN: ${{secrets.CODACY_API_TOKEN }}
+    secrets: inherit
